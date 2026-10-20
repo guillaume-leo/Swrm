@@ -64,9 +64,14 @@ func _process(_delta: float) -> void:
 	if simulation_pipeline == null:
 		return
 	simulation_pipeline.dispatch_render()
+	var output_texture := simulation_pipeline.get_output_texture()
+	if output_texture != null and output_sprite != null:
+		output_sprite.texture = output_texture
 
 
 func get_output_texture() -> Texture2D:
+	if simulation_pipeline != null:
+		return simulation_pipeline.get_output_texture()
 	if render_viewport == null:
 		return null
 	return render_viewport.get_texture()

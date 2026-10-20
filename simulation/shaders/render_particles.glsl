@@ -12,7 +12,7 @@ layout(set = 0, binding = 0, std430) restrict buffer ParticleData {
     Particle particles[];
 } particle_data;
 
-layout(r32ui, set = 0, binding = 1) uniform uimage2D render_image;
+layout(rgba8, set = 0, binding = 1) uniform image2D render_image;
 
 layout(set = 0, binding = 2, std430) restrict buffer RenderParams {
     ivec2 render_size;
@@ -30,6 +30,6 @@ void main() {
 
     if (pixel.x >= 0 && pixel.x < render_params.render_size.x &&
         pixel.y >= 0 && pixel.y < render_params.render_size.y) {
-        imageAtomicAdd(render_image, pixel, 1u);
+        imageStore(render_image, pixel, vec4(1.0, 1.0, 1.0, 1.0));
     }
 }

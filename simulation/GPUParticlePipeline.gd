@@ -15,6 +15,8 @@ var render_image_rid: RID
 var render_shader_rid: RID
 var render_pipeline_rid: RID
 var render_set: RID
+var has_submitted: bool = false
+var visible_texture: ImageTexture
 
 
 func _init(count: int = 256, size: Vector2i = Vector2i(512, 512)) -> void:
@@ -68,9 +70,10 @@ func _build_render_target() -> void:
 	format.depth = 1
 	format.mipmaps = 1
 	format.texture_type = RenderingDevice.TEXTURE_TYPE_2D
-	format.format = RenderingDevice.DATA_FORMAT_R32_UINT
-	format.usage_bits = RenderingDevice.TEXTURE_USAGE_STORAGE_BIT
+	format.format = RenderingDevice.DATA_FORMAT_R8G8B8A8_UNORM
+	format.usage_bits = RenderingDevice.TEXTURE_USAGE_STORAGE_BIT | RenderingDevice.TEXTURE_USAGE_CAN_COPY_FROM_BIT | RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT
 	render_image_rid = rd.texture_create(format, RDTextureView.new(), [])
+	visible_texture = null
 
 
 func _build_render_pipeline() -> void:
@@ -139,6 +142,16 @@ func dispatch_render() -> void:
 		return
 	if render_set.is_valid() == false:
 		return
+
+	# Clear the output image to black before drawing the particles.
+	var clear_bytes := PackedByteArray()
+	clear_bytes.resize(max(render_size.x * render_size.y * 4, 1))
+	clear_bytes.fill(0)
+	rd.texture_update(render_image_rid, 0, 0, 0, 0, 0, render_size.x, render_size.y, 1, clear_bytes)
+
+	# The device can only be synced after the first submit.
+	if has_submitted:
+		rd.sync()
 	_update_render_params_buffer()
 
 	var list := rd.compute_list_begin()
@@ -147,9 +160,28 @@ func dispatch_render() -> void:
 	rd.compute_list_dispatch(list, int(ceil(float(particle_count) / 64.0)), 1, 1)
 	rd.compute_list_end()
 	rd.submit()
+	has_submitted = true
+	read_back_texture()
+
+
+func read_back_texture() -> void:
+	if rd == null or render_image_rid.is_valid() == false:
+		return
+	var bytes := rd.texture_get_data(render_image_rid, 0)
+	if bytes.is_empty():
+		return
+	var image := Image.create_from_data(render_size.x, render_size.y, false, Image.FORMAT_RGBA8, bytes)
+	if image == null:
+		return
+	visible_texture = ImageTexture.create_from_image(image)
+
+
+func get_output_texture() -> Texture2D:
+	return visible_texture
 
 
 func dispose() -> void:
+	has_submitted = false
 	if rd == null:
 		return
 	if particle_buffer_rid.is_valid():
