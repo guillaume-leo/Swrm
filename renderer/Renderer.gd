@@ -1,77 +1,64 @@
-# Renderer
-# Minimal scene hook. The real particle output happens in the GPU pipeline.
 extends Node2D
-class_name Renderer
 
-@export var particle_count: int = 256
-@export var output_size: Vector2i = Vector2i(512, 512)
+const TEXTURE_SIZE := Vector2i(256, 256)
+const PARTICLE_COUNT := 8
 
-var render_viewport: SubViewport
-var output_sprite: Sprite2D
-var simulation_pipeline: GPUParticlePipeline
+var sprite: Sprite2D
+var image_texture: ImageTexture
+var render_image: Image
 
+var input_uniform: ImageUniform
+var output_uniform: SharedImageUniform
+var particle_uniform: StorageBufferUniform
+var compute: ComputeHelper
 
 func _ready() -> void:
-	_build_render_target()
-	_build_output_sprite()
-	_setup_simulation_pipeline()
-	_resize_to_window()
-	get_tree().root.size_changed.connect(_resize_to_window)
+	render_image = Image.create(TEXTURE_SIZE.x, TEXTURE_SIZE.y, false, Image.FORMAT_RGBA8)
+	render_image.fill(Color(0.03, 0.04, 0.08, 1.0))
+	image_texture = ImageTexture.create_from_image(render_image)
 
+	sprite = Sprite2D.new()
+	sprite.texture = image_texture
+	sprite.centered = false
+	sprite.scale = Vector2(2.0, 2.0)
+	add_child(sprite)
 
-func _build_render_target() -> void:
-	render_viewport = SubViewport.new()
-	render_viewport.size = output_size
-	render_viewport.disable_3d = true
-	render_viewport.transparent_bg = false
-	render_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	render_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
-	add_child(render_viewport)
+	_setup_compute()
+	set_process(true)
 
-	var background := ColorRect.new()
-	background.color = Color.BLACK
-	background.size = Vector2(output_size)
-	render_viewport.add_child(background)
+func _setup_compute() -> void:
+	var initial_image := Image.create(TEXTURE_SIZE.x, TEXTURE_SIZE.y, false, Image.FORMAT_RGBA8)
+	initial_image.fill(Color(0.03, 0.04, 0.08, 1.0))
 
+	input_uniform = ImageUniform.create(initial_image)
+	output_uniform = SharedImageUniform.create(input_uniform)
 
-func _build_output_sprite() -> void:
-	output_sprite = Sprite2D.new()
-	output_sprite.centered = false
-	output_sprite.texture = get_output_texture()
-	add_child(output_sprite)
+	particle_uniform = StorageBufferUniform.create(_build_particle_bytes(0.0))
+	compute = ComputeHelper.create("res://shaders/compute_particles.glsl")
+	compute.add_uniform_array([input_uniform, output_uniform, particle_uniform])
 
+	_run_frame()
 
-func _resize_to_window() -> void:
-	if render_viewport == null:
-		return
-	var target_size := Vector2i(get_viewport().get_visible_rect().size)
-	render_viewport.size = target_size
-	if output_sprite != null and output_sprite.texture != null:
-		output_sprite.scale = Vector2(
-			target_size.x / float(output_sprite.texture.get_width()),
-			target_size.y / float(output_sprite.texture.get_height())
-		)
+func _build_particle_bytes(time_offset: float) -> PackedByteArray:
+	var data := PackedFloat32Array()
+	for i in range(PARTICLE_COUNT):
+		var angle = TAU * float(i) / PARTICLE_COUNT + time_offset
+		var orbit = 38.0 + 28.0 * sin(float(i) * 1.7 + time_offset * 1.5)
+		var x = float(TEXTURE_SIZE.x) * 0.5 + cos(angle) * orbit
+		var y = float(TEXTURE_SIZE.y) * 0.5 + sin(angle) * orbit
+		var radius = 6.0 + (sin(time_offset * 2.0 + float(i)) + 1.0) * 3.0
+		var color_tint = 0.25 + float(i) / float(PARTICLE_COUNT) * 0.75
+		data.append_array([x, y, radius, color_tint])
+	return data.to_byte_array()
 
+func _run_frame() -> void:
+	var time_value = Time.get_ticks_msec() * 0.001
+	particle_uniform.update_data(_build_particle_bytes(time_value))
+	compute.run(Vector3i(TEXTURE_SIZE.x, TEXTURE_SIZE.y, 1))
+	ComputeHelper.sync()
 
-func _setup_simulation_pipeline() -> void:
-	simulation_pipeline = GPUParticlePipeline.new(particle_count, output_size)
-	if simulation_pipeline != null:
-		simulation_pipeline.bind_render_target(render_viewport)
-		simulation_pipeline.dispatch_render()
-
+	var updated_image := output_uniform.get_image()
+	image_texture.update(updated_image)
 
 func _process(_delta: float) -> void:
-	if simulation_pipeline == null:
-		return
-	simulation_pipeline.dispatch_render()
-	var output_texture := simulation_pipeline.get_output_texture()
-	if output_texture != null and output_sprite != null:
-		output_sprite.texture = output_texture
-
-
-func get_output_texture() -> Texture2D:
-	if simulation_pipeline != null:
-		return simulation_pipeline.get_output_texture()
-	if render_viewport == null:
-		return null
-	return render_viewport.get_texture()
+	_run_frame()
