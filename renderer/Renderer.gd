@@ -45,6 +45,14 @@ func _build_output_sprite() -> void:
 	add_child(output_sprite)
 
 
+func _process(_delta: float) -> void:
+	if simulation_pipeline == null:
+		return
+	if output_sprite != null and output_sprite.texture == null:
+		output_sprite.texture = get_output_texture()
+	simulation_pipeline.dispatch_render()
+
+
 func _get_window_size() -> Vector2i:
 	if get_viewport() == null:
 		return output_size
