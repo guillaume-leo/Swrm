@@ -2,7 +2,9 @@
 
 ## Scope
 
-This project is a Godot particle simulation inspired by physarum-like systems and live generative visuals. It uses compute shaders, real-time UI controls, and MIDI-driven live interaction.
+This project is a Godot 4.7 particle simulation inspired by physarum-like systems and live generative visuals. It uses compute shaders, real-time UI controls, and MIDI-driven live interaction.
+
+Reference documentation: https://docs.godotengine.org/en/4.7/classes/index.html
 
 ## AI behavior
 
