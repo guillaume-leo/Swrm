@@ -10,11 +10,13 @@ class_name Renderer
 var render_viewport: SubViewport
 var output_sprite: Sprite2D
 var render_background: ColorRect
+var simulation_pipeline: GPUParticlePipeline
 
 
 func _ready() -> void:
 	_build_render_target()
 	_build_output_sprite()
+	_setup_simulation_pipeline()
 	_resize_to_window()
 	get_tree().root.size_changed.connect(_resize_to_window)
 
@@ -66,12 +68,20 @@ func _resize_to_window() -> void:
 			)
 
 
+func _setup_simulation_pipeline() -> void:
+	simulation_pipeline = GPUParticlePipeline.new(4096, output_size)
+	if simulation_pipeline != null:
+		simulation_pipeline.bind_render_target(render_viewport)
+
+
 func set_output_size(size: Vector2i) -> void:
 	output_size = size
 	if render_viewport != null:
 		render_viewport.size = size
 		if render_background != null:
 			render_background.size = Vector2(size)
+	if simulation_pipeline != null:
+		simulation_pipeline.render_size = size
 
 
 func get_output_texture() -> Texture2D:
