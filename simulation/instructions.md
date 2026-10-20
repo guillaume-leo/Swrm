@@ -27,4 +27,3 @@ This is the base representation for the simulation buffers.
 - Update the simulation through GPU compute passes.
 - Write simulation output into the renderer target without CPU readback.
 - Keep the CPU layer limited to setup and orchestration.
-

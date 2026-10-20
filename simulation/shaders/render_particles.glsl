@@ -26,7 +26,7 @@ void main() {
     }
 
     vec2 pos = particle_data.particles[index].pos;
-    ivec2 pixel = ivec2(floor(pos * vec2(render_params.render_size)));
+    ivec2 pixel = ivec2(floor((pos * 0.5 + 0.5) * vec2(render_params.render_size)));
 
     if (pixel.x >= 0 && pixel.x < render_params.render_size.x &&
         pixel.y >= 0 && pixel.y < render_params.render_size.y) {
