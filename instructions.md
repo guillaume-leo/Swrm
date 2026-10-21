@@ -30,6 +30,8 @@ Reference documentation: https://docs.godotengine.org/en/4.7/classes/index.html
 - If a change is uncertain, ask before acting.
 - Prefer minimal edits.
 - For particle rendering, assume the system may scale to millions of particles. So we will never loop through all of them, (unless for initialization step), we will ONLY use GPU parrallel algorythms
+- Never modify files inside [compute_shader_plus](compute_shader_plus). NEVER.
+- For the trail map / deposit system, use additive accumulation in a dedicated buffer rather than overwrite-style writes to a final image.
 
 ## Response style
 
