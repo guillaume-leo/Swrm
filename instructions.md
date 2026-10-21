@@ -29,6 +29,7 @@ Reference documentation: https://docs.godotengine.org/en/4.7/classes/index.html
 - Do not perform cleanup or optimization unless explicitly requested.
 - If a change is uncertain, ask before acting.
 - Prefer minimal edits.
+- For particle rendering, assume the system may scale to millions of particles. So we will never loop through all of them, (unless for initialization step), we will ONLY use GPU parrallel algorythms
 
 ## Response style
 
