@@ -18,16 +18,13 @@ void main() {
     for (int i = 0; i < 8; i++) {
         vec4 particle = particles[i];
         vec2 position = particle.xy;
-        float radius = particle.z;
-        float tint = particle.w;
+        vec2 velocity = particle.zw;
 
         vec2 delta = frag - position;
-        float distance = length(delta);
-        float blob = 1.0 - smoothstep(radius - 0.5, radius + 2.0, distance);
-        float glow = exp(-distance * 0.28);
+        float distance_sq = dot(delta, delta);
+        float point = 1.0 - step(0.7, distance_sq);
 
-        vec3 base_tint = mix(vec3(0.9, 0.7, 1.0), vec3(0.2, 0.9, 1.0), tint);
-        color += base_tint * (blob * 0.9 + glow * 0.25);
+        color += vec3(1.0) * point;
     }
 
     color = max(color, source_color.rgb * 0.45);

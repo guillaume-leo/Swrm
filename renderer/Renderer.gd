@@ -61,11 +61,15 @@ func _build_particle_bytes(time_offset: float) -> PackedByteArray:
 	for i in range(PARTICLE_COUNT):
 		var angle = TAU * float(i) / PARTICLE_COUNT + time_offset
 		var orbit = 38.0 + 28.0 * sin(float(i) * 1.7 + time_offset * 1.5)
-		var x = float(texture_size.x) * 0.5 + cos(angle) * orbit
-		var y = float(texture_size.y) * 0.5 + sin(angle) * orbit
-		var radius = 6.0 + (sin(time_offset * 2.0 + float(i)) + 1.0) * 3.0
-		var color_tint = 0.25 + float(i) / float(PARTICLE_COUNT) * 0.75
-		data.append_array([x, y, radius, color_tint])
+		var position := Vector2(
+			float(texture_size.x) * 0.5 + cos(angle) * orbit,
+			float(texture_size.y) * 0.5 + sin(angle) * orbit
+		)
+		var velocity := Vector2(
+			-sin(angle) * orbit * 0.35,
+			cos(angle) * orbit * 0.35
+		)
+		data.append_array([position.x, position.y, velocity.x, velocity.y])
 	return data.to_byte_array()
 
 func _run_frame() -> void:
