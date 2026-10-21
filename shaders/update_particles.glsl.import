@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cba8s5cas03rh"
+path="res://.godot/imported/update_particles.glsl-859a6c420e06bf58041b61b7dc86ad5d.res"
+
+[deps]
+
+source_file="res://shaders/update_particles.glsl"
+dest_files=["res://.godot/imported/update_particles.glsl-859a6c420e06bf58041b61b7dc86ad5d.res"]
+
+[params]
+

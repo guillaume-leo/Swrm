@@ -11,6 +11,7 @@ var input_uniform: ImageUniform
 var output_uniform: SharedImageUniform
 var particle_uniform: StorageBufferUniform
 var compute: ComputeHelper
+var update_compute: ComputeHelper
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -52,32 +53,39 @@ func _setup_compute() -> void:
 
 	particle_uniform = StorageBufferUniform.create(_build_particle_bytes(0.0))
 	compute = ComputeHelper.create("res://shaders/compute_particles.glsl")
+	update_compute = ComputeHelper.create("res://shaders/update_particles.glsl")
 	compute.add_uniform_array([input_uniform, output_uniform, particle_uniform])
+	update_compute.add_uniform(particle_uniform)
 
 	_run_frame()
 
-func _build_particle_bytes(time_offset: float) -> PackedByteArray:
+func _build_particle_bytes(_time_offset: float) -> PackedByteArray:
 	var data := PackedFloat32Array()
 	for i in range(PARTICLE_COUNT):
-		var angle = TAU * float(i) / PARTICLE_COUNT + time_offset
-		var orbit = 38.0 + 28.0 * sin(float(i) * 1.7 + time_offset * 1.5)
 		var position := Vector2(
-			float(texture_size.x) * 0.5 + cos(angle) * orbit,
-			float(texture_size.y) * 0.5 + sin(angle) * orbit
+			randi_range(0, texture_size.x - 1),
+			randi_range(0, texture_size.y - 1)
 		)
 		var velocity := Vector2(
-			-sin(angle) * orbit * 0.35,
-			cos(angle) * orbit * 0.35
+			randf_range(-1.5, 1.5),
+			randf_range(-1.5, 1.5)
 		)
 		data.append_array([position.x, position.y, velocity.x, velocity.y])
 	return data.to_byte_array()
 
 func _run_frame() -> void:
-	if particle_uniform == null or compute == null or output_uniform == null:
+	if particle_uniform == null or compute == null or update_compute == null or output_uniform == null:
 		return
 
-	var time_value = Time.get_ticks_msec() * 0.001
-	particle_uniform.update_data(_build_particle_bytes(time_value))
+	var params := PackedFloat32Array([
+		float(texture_size.x),
+		float(texture_size.y),
+		0.0,
+		0.0,
+	])
+	update_compute.run(Vector3i(PARTICLE_COUNT, 1, 1), params.to_byte_array())
+	ComputeHelper.sync()
+
 	compute.run(Vector3i(texture_size.x, texture_size.y, 1))
 	ComputeHelper.sync()
 
