@@ -32,6 +32,7 @@ var input_uniform: ImageUniform
 var output_uniform: SharedImageUniform
 var trail_map_uniform: ImageUniform
 var trail_map_output_uniform: SharedImageUniform
+var trail_deposit_uniform: StorageBufferUniform
 var particle_uniform: StorageBufferUniform
 var compute: ComputeHelper
 var update_compute: ComputeHelper
@@ -90,11 +91,12 @@ func _setup_compute() -> void:
 	output_uniform = SharedImageUniform.create(input_uniform)
 	trail_map_uniform = ImageUniform.create(trail_initial_image)
 	trail_map_output_uniform = SharedImageUniform.create(trail_map_uniform)
+	trail_deposit_uniform = StorageBufferUniform.create(_build_trail_deposit_bytes())
 
 	particle_uniform = StorageBufferUniform.create(_build_particle_bytes(0.0))
 	compute = ComputeHelper.create("res://shaders/compute_particles.glsl")
 	update_compute = ComputeHelper.create("res://shaders/update_particles.glsl")
-	compute.add_uniform_array([input_uniform, output_uniform, particle_uniform, trail_map_output_uniform])
+	compute.add_uniform_array([input_uniform, output_uniform, particle_uniform, trail_map_output_uniform, trail_deposit_uniform])
 	update_compute.add_uniform(particle_uniform)
 
 	_run_frame()
@@ -113,7 +115,7 @@ func _apply_display_texture() -> void:
 func _build_particle_bytes(_time_offset: float) -> PackedByteArray:
 	var data := PackedFloat32Array()
 	for i in range(particle_count):
-		var position := Vector2(
+		var particle_position := Vector2(
 			randi_range(0, texture_size.x - 1),
 			randi_range(0, texture_size.y - 1)
 		)
@@ -121,8 +123,14 @@ func _build_particle_bytes(_time_offset: float) -> PackedByteArray:
 			randf_range(-1.5, 1.5),
 			randf_range(-1.5, 1.5)
 		)
-		data.append_array([position.x, position.y, velocity.x, velocity.y])
+		data.append_array([particle_position.x, particle_position.y, velocity.x, velocity.y])
 	return data.to_byte_array()
+
+func _build_trail_deposit_bytes() -> PackedByteArray:
+	var deposit_count := trail_map_size.x * trail_map_size.y
+	var data := PackedByteArray()
+	data.resize(deposit_count * 4)
+	return data
 
 func _run_frame() -> void:
 	if particle_uniform == null or compute == null or update_compute == null or output_uniform == null:
