@@ -8,7 +8,14 @@ enum DisplayMode {
 const DEFAULT_PARTICLE_COUNT := 8
 const DEFAULT_TRAIL_MAP_SCALE := 0.25
 
-@export var particle_count: int = DEFAULT_PARTICLE_COUNT
+@export var particle_count: int = DEFAULT_PARTICLE_COUNT:
+	set(value):
+		var clamped_value: int = max(1, value)
+		if particle_count == clamped_value:
+			return
+		particle_count = clamped_value
+		_needs_particle_buffer_rebuild = true
+
 @export var display_mode: DisplayMode = DisplayMode.PARTICLES
 @export_range(0.05, 1.0, 0.05) var trail_map_scale: float = DEFAULT_TRAIL_MAP_SCALE:
 	set(value):
@@ -19,6 +26,7 @@ const DEFAULT_TRAIL_MAP_SCALE := 0.25
 		_mark_trail_map_dirty()
 
 var _needs_trail_map_rebuild := false
+var _needs_particle_buffer_rebuild := false
 
 var texture_size := Vector2i.ZERO
 var trail_map_size := Vector2i.ZERO
@@ -126,6 +134,12 @@ func _build_particle_bytes(_time_offset: float) -> PackedByteArray:
 		data.append_array([particle_position.x, particle_position.y, velocity.x, velocity.y])
 	return data.to_byte_array()
 
+func _rebuild_particle_buffer() -> void:
+	if particle_uniform == null:
+		particle_uniform = StorageBufferUniform.create(_build_particle_bytes(0.0))
+		return
+	particle_uniform.update_data(_build_particle_bytes(0.0))
+
 func _build_trail_deposit_bytes() -> PackedByteArray:
 	var deposit_count := trail_map_size.x * trail_map_size.y
 	var data := PackedByteArray()
@@ -145,15 +159,9 @@ func _run_frame() -> void:
 	update_compute.run(Vector3i(particle_count, 1, 1), params.to_byte_array())
 	ComputeHelper.sync()
 
-	compute.run(Vector3i(texture_size.x, texture_size.y, 1), params.to_byte_array())
+	compute.run(Vector3i(max(1, particle_count), 1, 1), params.to_byte_array())
 	ComputeHelper.sync()
 
-	var updated_image := output_uniform.get_image()
-	image_texture.update(updated_image)
-
-	if trail_map_output_uniform != null:
-		trail_map_image = trail_map_output_uniform.get_image()
-		trail_map_texture.update(trail_map_image)
 	_apply_display_texture()
 
 func _process(_delta: float) -> void:
@@ -161,4 +169,7 @@ func _process(_delta: float) -> void:
 		_resize_to_viewport()
 		_setup_compute()
 		_needs_trail_map_rebuild = false
+	if _needs_particle_buffer_rebuild:
+		_rebuild_particle_buffer()
+		_needs_particle_buffer_rebuild = false
 	_run_frame()
