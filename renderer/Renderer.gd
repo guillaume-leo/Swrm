@@ -5,9 +5,10 @@ enum DisplayMode {
 	TRAIL_MAP,
 }
 
-const PARTICLE_COUNT := 8
+const DEFAULT_PARTICLE_COUNT := 8
 const DEFAULT_TRAIL_MAP_SCALE := 0.25
 
+@export var particle_count: int = DEFAULT_PARTICLE_COUNT
 @export var display_mode: DisplayMode = DisplayMode.PARTICLES
 @export_range(0.05, 1.0, 0.05) var trail_map_scale := DEFAULT_TRAIL_MAP_SCALE
 
@@ -100,7 +101,7 @@ func _apply_display_texture() -> void:
 
 func _build_particle_bytes(_time_offset: float) -> PackedByteArray:
 	var data := PackedFloat32Array()
-	for i in range(PARTICLE_COUNT):
+	for i in range(particle_count):
 		var position := Vector2(
 			randi_range(0, texture_size.x - 1),
 			randi_range(0, texture_size.y - 1)
@@ -122,7 +123,7 @@ func _run_frame() -> void:
 		0.0,
 		0.0,
 	])
-	update_compute.run(Vector3i(PARTICLE_COUNT, 1, 1), params.to_byte_array())
+	update_compute.run(Vector3i(particle_count, 1, 1), params.to_byte_array())
 	ComputeHelper.sync()
 
 	compute.run(Vector3i(texture_size.x, texture_size.y, 1))

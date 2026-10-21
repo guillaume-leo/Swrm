@@ -6,5 +6,5 @@
 
 [node name="Renderer" type="Node2D" parent="." unique_id=346868242]
 script = ExtResource("1_abc123")
-show_trail_map = true
-trail_map_scale = 1.0
+display_mode = 1
+trail_map_scale = 0.5
