@@ -1,11 +1,18 @@
 extends Node2D
 
 const PARTICLE_COUNT := 8
+const DEFAULT_TRAIL_MAP_SCALE := 0.25
+
+@export var show_trail_map := false
+@export_range(0.05, 1.0, 0.05) var trail_map_scale := DEFAULT_TRAIL_MAP_SCALE
 
 var texture_size := Vector2i.ZERO
+var trail_map_size := Vector2i.ZERO
 var sprite: Sprite2D
 var image_texture: ImageTexture
+var trail_map_texture: ImageTexture
 var render_image: Image
+var trail_map_image: Image
 
 var input_uniform: ImageUniform
 var output_uniform: SharedImageUniform
@@ -30,16 +37,25 @@ func _resize_to_viewport() -> void:
 	if texture_size.y <= 0:
 		texture_size.y = 1
 
+	trail_map_size = Vector2i(
+		max(1, int(float(texture_size.x) * trail_map_scale)),
+		max(1, int(float(texture_size.y) * trail_map_scale))
+	)
+
 	render_image = Image.create(texture_size.x, texture_size.y, false, Image.FORMAT_RGBA8)
 	render_image.fill(Color(0.03, 0.04, 0.08, 1.0))
 	image_texture = ImageTexture.create_from_image(render_image)
+
+	trail_map_image = Image.create(trail_map_size.x, trail_map_size.y, false, Image.FORMAT_RGBA8)
+	trail_map_image.fill(Color(0.03, 0.04, 0.08, 1.0))
+	trail_map_texture = ImageTexture.create_from_image(trail_map_image)
 
 	if sprite == null:
 		sprite = Sprite2D.new()
 		sprite.centered = false
 		add_child(sprite)
 
-	sprite.texture = image_texture
+	_apply_display_texture()
 	sprite.position = Vector2.ZERO
 	sprite.offset = Vector2.ZERO
 	sprite.scale = Vector2.ONE
@@ -58,6 +74,14 @@ func _setup_compute() -> void:
 	update_compute.add_uniform(particle_uniform)
 
 	_run_frame()
+
+func _apply_display_texture() -> void:
+	if sprite == null:
+		return
+	if show_trail_map:
+		sprite.texture = trail_map_texture
+	else:
+		sprite.texture = image_texture
 
 func _build_particle_bytes(_time_offset: float) -> PackedByteArray:
 	var data := PackedFloat32Array()
@@ -91,6 +115,13 @@ func _run_frame() -> void:
 
 	var updated_image := output_uniform.get_image()
 	image_texture.update(updated_image)
+
+	# The trail map is kept as a smaller offline representation of the same simulation.
+	# It exists continuously, even when the viewport is still showing the direct particle render.
+	trail_map_image = updated_image.duplicate()
+	trail_map_image.resize(trail_map_size.x, trail_map_size.y, Image.INTERPOLATE_BILINEAR)
+	trail_map_texture.update(trail_map_image)
+	_apply_display_texture()
 
 func _process(_delta: float) -> void:
 	_run_frame()
