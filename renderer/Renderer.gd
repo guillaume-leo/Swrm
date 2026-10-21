@@ -1,9 +1,14 @@
 extends Node2D
 
+enum DisplayMode {
+	PARTICLES,
+	TRAIL_MAP,
+}
+
 const PARTICLE_COUNT := 8
 const DEFAULT_TRAIL_MAP_SCALE := 0.25
 
-@export var show_trail_map := false
+@export var display_mode: DisplayMode = DisplayMode.PARTICLES
 @export_range(0.05, 1.0, 0.05) var trail_map_scale := DEFAULT_TRAIL_MAP_SCALE
 
 var texture_size := Vector2i.ZERO
@@ -78,7 +83,10 @@ func _setup_compute() -> void:
 func _apply_display_texture() -> void:
 	if sprite == null:
 		return
-	if show_trail_map:
+
+	# The trail map keeps updating in the background even when we are looking at the
+	# direct particle render. The visible mode only chooses what we display.
+	if display_mode == DisplayMode.TRAIL_MAP:
 		sprite.texture = trail_map_texture
 	else:
 		sprite.texture = image_texture

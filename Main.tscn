@@ -1,8 +1,10 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://bo5huyb8fmqnm"]
 
-[ext_resource type="Script" path="res://renderer/Renderer.gd" id="1_abc123"]
+[ext_resource type="Script" uid="uid://b2iarpnax4sq7" path="res://renderer/Renderer.gd" id="1_abc123"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=1038867429]
 
-[node name="Renderer" type="Node2D" parent="."]
+[node name="Renderer" type="Node2D" parent="." unique_id=346868242]
 script = ExtResource("1_abc123")
+show_trail_map = true
+trail_map_scale = 1.0
