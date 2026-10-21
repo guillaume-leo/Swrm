@@ -21,6 +21,8 @@ var trail_map_image: Image
 
 var input_uniform: ImageUniform
 var output_uniform: SharedImageUniform
+var trail_map_uniform: ImageUniform
+var trail_map_output_uniform: SharedImageUniform
 var particle_uniform: StorageBufferUniform
 var compute: ComputeHelper
 var update_compute: ComputeHelper
@@ -69,13 +71,18 @@ func _setup_compute() -> void:
 	var initial_image := Image.create(texture_size.x, texture_size.y, false, Image.FORMAT_RGBA8)
 	initial_image.fill(Color(0.03, 0.04, 0.08, 1.0))
 
+	var trail_initial_image := Image.create(trail_map_size.x, trail_map_size.y, false, Image.FORMAT_RGBA8)
+	trail_initial_image.fill(Color(0.03, 0.04, 0.08, 1.0))
+
 	input_uniform = ImageUniform.create(initial_image)
 	output_uniform = SharedImageUniform.create(input_uniform)
+	trail_map_uniform = ImageUniform.create(trail_initial_image)
+	trail_map_output_uniform = SharedImageUniform.create(trail_map_uniform)
 
 	particle_uniform = StorageBufferUniform.create(_build_particle_bytes(0.0))
 	compute = ComputeHelper.create("res://shaders/compute_particles.glsl")
 	update_compute = ComputeHelper.create("res://shaders/update_particles.glsl")
-	compute.add_uniform_array([input_uniform, output_uniform, particle_uniform])
+	compute.add_uniform_array([input_uniform, output_uniform, particle_uniform, trail_map_output_uniform])
 	update_compute.add_uniform(particle_uniform)
 
 	_run_frame()
@@ -124,11 +131,9 @@ func _run_frame() -> void:
 	var updated_image := output_uniform.get_image()
 	image_texture.update(updated_image)
 
-	# The trail map is kept as a smaller offline representation of the same simulation.
-	# It exists continuously, even when the viewport is still showing the direct particle render.
-	trail_map_image = updated_image.duplicate()
-	trail_map_image.resize(trail_map_size.x, trail_map_size.y, Image.INTERPOLATE_BILINEAR)
-	trail_map_texture.update(trail_map_image)
+	if trail_map_output_uniform != null:
+		trail_map_image = trail_map_output_uniform.get_image()
+		trail_map_texture.update(trail_map_image)
 	_apply_display_texture()
 
 func _process(_delta: float) -> void:

@@ -6,6 +6,7 @@ layout(set = 0, binding = 1, rgba8) writeonly restrict uniform image2D output_te
 layout(set = 0, binding = 2) buffer ParticleBuffer {
     vec4 particles[];
 };
+layout(set = 0, binding = 3, rgba8) uniform image2D trail_map;
 
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
@@ -14,6 +15,7 @@ void main() {
     vec2 frag = vec2(uv);
     vec4 source_color = imageLoad(input_texture, uv);
     vec3 color = vec3(0.03, 0.04, 0.08);
+    vec3 trail_contribution = vec3(0.0);
 
     for (int i = 0; i < 8; i++) {
         vec4 particle = particles[i];
@@ -25,9 +27,18 @@ void main() {
         float point = 1.0 - step(0.7, distance_sq);
 
         color += vec3(1.0) * point;
+        trail_contribution += vec3(1.0) * point;
     }
 
     color = max(color, source_color.rgb * 0.45);
     color = clamp(color, vec3(0.0), vec3(1.0));
     imageStore(output_texture, uv, vec4(color, 1.0));
+
+    ivec2 trail_size = imageSize(trail_map);
+    ivec2 trail_uv = ivec2(floor(vec2(uv) * (vec2(trail_size) / vec2(imageSize(input_texture)))));
+    trail_uv = clamp(trail_uv, ivec2(0), trail_size - 1);
+
+    vec3 trail_value = imageLoad(trail_map, trail_uv).rgb;
+    vec3 next_trail = clamp(trail_value + trail_contribution, vec3(0.0), vec3(1.0));
+    imageStore(trail_map, trail_uv, vec4(next_trail, 1.0));
 }
