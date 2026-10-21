@@ -10,7 +10,15 @@ const DEFAULT_TRAIL_MAP_SCALE := 0.25
 
 @export var particle_count: int = DEFAULT_PARTICLE_COUNT
 @export var display_mode: DisplayMode = DisplayMode.PARTICLES
-@export_range(0.05, 1.0, 0.05) var trail_map_scale := DEFAULT_TRAIL_MAP_SCALE
+@export_range(0.05, 1.0, 0.05) var trail_map_scale: float = DEFAULT_TRAIL_MAP_SCALE:
+	set(value):
+		var clamped_value: float = clamp(value, 0.05, 1.0)
+		if abs(trail_map_scale - clamped_value) < 0.0001:
+			return
+		trail_map_scale = clamped_value
+		_mark_trail_map_dirty()
+
+var _needs_trail_map_rebuild := false
 
 var texture_size := Vector2i.ZERO
 var trail_map_size := Vector2i.ZERO
@@ -37,6 +45,9 @@ func _ready() -> void:
 func _on_viewport_size_changed() -> void:
 	_resize_to_viewport()
 	_setup_compute()
+
+func _mark_trail_map_dirty() -> void:
+	_needs_trail_map_rebuild = true
 
 func _resize_to_viewport() -> void:
 	texture_size = Vector2i(get_viewport_rect().size)
@@ -120,13 +131,13 @@ func _run_frame() -> void:
 	var params := PackedFloat32Array([
 		float(texture_size.x),
 		float(texture_size.y),
-		0.0,
+		float(particle_count),
 		0.0,
 	])
 	update_compute.run(Vector3i(particle_count, 1, 1), params.to_byte_array())
 	ComputeHelper.sync()
 
-	compute.run(Vector3i(texture_size.x, texture_size.y, 1))
+	compute.run(Vector3i(texture_size.x, texture_size.y, 1), params.to_byte_array())
 	ComputeHelper.sync()
 
 	var updated_image := output_uniform.get_image()
@@ -138,4 +149,8 @@ func _run_frame() -> void:
 	_apply_display_texture()
 
 func _process(_delta: float) -> void:
+	if _needs_trail_map_rebuild:
+		_resize_to_viewport()
+		_setup_compute()
+		_needs_trail_map_rebuild = false
 	_run_frame()

@@ -8,6 +8,10 @@ layout(set = 0, binding = 2) buffer ParticleBuffer {
 };
 layout(set = 0, binding = 3, rgba8) uniform image2D trail_map;
 
+layout(push_constant) uniform Params {
+    vec4 resolution_count;
+};
+
 layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
 void main() {
@@ -16,8 +20,9 @@ void main() {
     vec4 source_color = imageLoad(input_texture, uv);
     vec3 color = vec3(0.03, 0.04, 0.08);
     vec3 trail_contribution = vec3(0.0);
+    int max_particles = int(resolution_count.z);
 
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < max_particles; i++) {
         vec4 particle = particles[i];
         vec2 position = particle.xy;
         vec2 velocity = particle.zw;
