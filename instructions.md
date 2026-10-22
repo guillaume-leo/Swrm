@@ -38,7 +38,7 @@ Reference documentation: https://docs.godotengine.org/en/4.7/classes/index.html
 Godot 4 `RenderingDevice`, grid `WIDTH × HEIGHT`.
 
 - **`particles`**: SSBO (`float[]`), `N_PARTICLES × PARAMS_COUNT` floats. Particle state (position, heading...).
-- **`counter`**: SSBO (`int[]`), `WIDTH × HEIGHT × 2` ints. Per-frame velocity accumulator (x, y), fixed-point (`SCALE = 1024`).
+- **`counter`**: SSBO (`int[]`/`uint[]`), `WIDTH × HEIGHT × 2` 32-bit integers. Per-frame velocity accumulator (x, y), fixed-point (`SCALE = 1024`). This must be an integer storage buffer, not a float buffer, because `atomicAdd` is only valid on integer lanes. Flattened layout: `counter[2 * pixel + 0] = vx_accum`, `counter[2 * pixel + 1] = vy_accum`.
 - **`trailRead`**: Image `R16G16_SFLOAT`, `WIDTH × HEIGHT`. Persistent vector field (R = vx, G = vy), sensed by particles.
 - **`trailWrite`**: Image `R16G16_SFLOAT`, `WIDTH × HEIGHT`. Intermediate field (deposit output, diffusion input).
 - **Scalar parameters**: push constants.
@@ -60,6 +60,8 @@ next frame
 ```
 
 1. **Clear**: `rd.buffer_clear(counter, 0)`.
-2. **Move**: each particle samples `trailRead`, steers (aligns with local flow), moves, then `atomicAdd` its velocity `(vx, vy)` × `SCALE` into `counter` at its pixel.
+2. **Move**: each particle samples `trailRead`, steers (aligns with local flow), moves, then performs `atomicAdd` on the two integer lanes of `counter` at its pixel: `counter[2 * pixel + 0] += vx * SCALE`, `counter[2 * pixel + 1] += vy * SCALE`.
 3. **Deposit**: each pixel reads `counter`, divides by `SCALE`, writes the vector (× `DEPOSIT_FACTOR`) into `trailWrite`.
 4. **Diffuse + decay**: read `trailWrite`, blur, × `DECAY_FACTOR`, write into `trailRead`.
+
+Important: `counter` must be a storage buffer with integer elements, not a `float[]` or `vec2[]` array. `atomicAdd` is not valid on floating-point storage, and a `vec2` cannot be atomically updated as a whole; the safe pattern is a flat `int[]`/`uint[]` with one atomic per channel.
