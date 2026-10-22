@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cl01b1nqql5bx"
+path="res://.godot/imported/center_atomic.glsl-7a77c95e1859985fe50ce7ab024cb29e.res"
+
+[deps]
+
+source_file="res://renderer/shaders/center_atomic.glsl"
+dest_files=["res://.godot/imported/center_atomic.glsl-7a77c95e1859985fe50ce7ab024cb29e.res"]
+
+[params]
+
