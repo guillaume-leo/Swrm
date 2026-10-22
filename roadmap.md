@@ -2,123 +2,156 @@
 
 ## Goal
 
-Build the project incrementally, with each step testable and validated before moving to the next one.
+Build the project in the exact order of the GPU simulation pipeline defined in the project instructions:
 
-## Core rule
+clear -> move -> deposit -> diffusion
 
-Each step must answer three questions:
-
-1. What do I want to prove?
-2. How do I validate it?
-3. What is the condition to move to the next step?
+Each step must be testable and verified before moving to the next one.
 
 ## Project rules
 
 - Write in English only.
-- Follow the user request exactly.
-- Keep explanations short and practical.
-- Do not modify files inside [compute_shader_plus](compute_shader_plus).
+- Stay within the requested task.
 - Prefer minimal edits.
-- For particle rendering, use GPU-parallel algorithms only.
+- Never modify files inside [compute_shader_plus](compute_shader_plus).
+- Use GPU-parallel algorithms only for particle movement and rendering.
+- Respect the lifecycle and resource names from the project instructions.
 
-## Planned steps
+## Required GPU resources
 
-### 1. Scene bootstrap
+- particles: SSBO, N_PARTICLES × PARAMS_COUNT floats
+- counter: SSBO, WIDTH × HEIGHT × 2 ints, with SCALE = 1024
+- trailRead: Image R16G16_SFLOAT, WIDTH × HEIGHT
+- trailWrite: Image R16G16_SFLOAT, WIDTH × HEIGHT
+- scalar parameters: push constants
+- ping-pong: two uniform sets, A and B
+- shaders: move.glsl, deposit.glsl, diffusion.glsl
 
-Goal: launch the project without errors.
+## Pipeline order
+
+1. Clear counter
+2. Move particles
+3. Deposit into trailWrite
+4. Diffuse and decay into trailRead
+5. Repeat next frame
+
+## Step-by-step plan
+
+### 1. Bootstrap the scene and runtime
+
+Goal: make the project load cleanly and expose a basic render surface.
 
 Create:
-- a root scene
-- a minimal script
-- a startup entry point
+- root scene
+- script entry point
+- basic viewport render setup
 
 Validation:
-- project opens without crash
-- script runs
-- log prints: boot ok
+- project opens without error
+- script executes
+- frame renders without crash
 
-### 2. Simulation parameters
+### 2. Define the simulation configuration
 
-Goal: define the basic configuration values.
+Goal: define the exact simulation parameters used by the pipeline.
 
 Create:
+- WIDTH and HEIGHT
 - particle count
-- field resolution
-- simulation size
+- deposit factor
+- decay factor
+- scale value and push-constant-style config
 
 Validation:
-- parameters are readable and coherent
-- no invalid values
-- default config is stable
+- values are valid and typed correctly
+- config matches the GPU pipeline expectations
+- no invalid state on startup
 
-### 3. Initial particle state
+### 3. Define particle state data
 
-Goal: generate a valid starting state.
+Goal: create the particle SSBO layout and data model.
 
 Create:
-- initial positions
-- random heading or velocity
-- bounded placement inside the simulation area
+- particle state structure
+- position and heading fields
+- any required per-particle parameters
 
 Validation:
-- positions remain within limits
-- no NaN values
-- no complete overlap or degenerate initialization
+- data layout is coherent with the shader contract
+- there are no invalid or undefined values
+- buffer structure matches the intended CPU/GPU flow
 
-### 4. Minimal compute pipeline
+### 4. Create the clear step
 
-Goal: confirm GPU compute works.
+Goal: validate that the counter buffer is reset every frame.
 
 Create:
-- RenderingDevice usage
-- one small SSBO or buffer
-- one simple shader that writes data
+- counter SSBO
+- frame clear operation
+- buffer_clear call before movement
 
 Validation:
-- shader executes successfully
-- data is written and read back correctly
-- no rendering/device crash
+- counter resets to zero before move stage
+- no stale velocity remains between frames
+- this is the first valid stage of the pipeline
 
-### 5. Minimal trail field
+### 5. Implement the move pass
 
-Goal: validate deposit and diffusion behavior.
+Goal: verify particles read the trail, steer, then write velocity into the counter.
 
 Create:
-- a small 2D field
-- a simple deposit region
-- a minimal diffusion pass
+- move.glsl
+- particle iteration in compute dispatch
+- atomicAdd into counter at each particle pixel
 
 Validation:
-- the field changes visibly
-- the effect spreads in a controlled way
-- behavior is observable in debug view
+- each particle is processed once in its dispatch pass
+- velocity contributions accumulate correctly per pixel
+- no CPU fallback is used
 
-### 6. Particle motion
+### 6. Implement the deposit pass
 
-Goal: make particles move according to the field.
+Goal: convert accumulated counter values into a stable trail field.
 
 Create:
-- update positions
-- clamp movement to bounds
+- deposit.glsl
+- read the counter buffer
+- divide by SCALE
+- write to trailWrite with deposit factor
 
 Validation:
-- particles move over time
-- no particles freeze or disappear
+- counter values convert correctly to directional vector flow
+- trailWrite receives the deposit result
+- the output is ready for diffusion
 
-### 7. Render layer
+### 7. Implement the diffusion pass
 
-Goal: display the simulation without CPU-heavy loops.
+Goal: blur and decay the trail field before the next frame.
 
 Create:
-- a GPU render path
-- lightweight visual output
-- display of particles or trail field
+- diffusion.glsl
+- read trailWrite
+- apply blur and decay
+- write into trailRead
 
 Validation:
-- visible feedback in the viewport
-- no performance blow-up in a small test
-- rendering remains stable
+- flow field remains stable over time
+- decay prevents runaway accumulation
+- ping-pong swap is correct between A and B
 
-Never start the next step before the current one is validated.
+## Required validation after each step
 
-Each step should be small, observable, and independent enough to debug quickly.
+Each step must prove the exact target behavior before moving on:
+
+- is the resource created?
+- is the stage producing the expected output?
+- does the next stage receive valid input?
+- is the pipeline still consistent with the instructions?
+
+## Critical constraint
+
+The project must be built in this order:
+
+clear -> move -> deposit -> diffusion
+
+Not as a generic simulation, but as the exact GPU lifecycle described in the instructions document.
